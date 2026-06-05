@@ -117,8 +117,8 @@ function Hud({ me, isAdmin, activeSession, onLeaderboard, onAdmin, onLogout, onJ
 }
 
 function RoomNode({ room, isCurrent, side, index, userId, onEnterFresh, onEnterResume, onEnterPractice, onLockedClick }) {
-  // exhausted takes priority: exhausted-and-completed → still practice only
-  const state = room.exhausted ? "exhausted" : room.completed ? "completed" : room.unlocked ? "unlocked" : "locked";
+  const isExhausted = room.exhausted || (room.max_attempts && (room.attempts || 0) >= room.max_attempts);
+  const state = isExhausted ? "exhausted" : room.completed ? "completed" : room.unlocked ? "unlocked" : "locked";
   const cls = ["room-card", "reveal"];
   if (isCurrent) cls.push("pulse-current");
 

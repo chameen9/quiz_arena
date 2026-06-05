@@ -27,11 +27,11 @@ function App() {
   }, [t]);
 
   const [route, setRoute] = useStateApp(() => {
-    // support bookmarkable hash: #leaderboard or #leaderboard/BATCH
     const hash = window.location.hash.replace('#', '');
     if (hash.startsWith('leaderboard')) return 'leaderboard';
+    if (hash.startsWith('admin/')) return 'admin';
     return 'map';
-  }); // map | room | leaderboard | session-lb
+  }); // map | room | leaderboard | session-lb | admin
   const [token, setToken] = useStateApp(() => localStorage.getItem(TOKEN_KEY) || null);
   const [rooms, setRooms] = useStateApp([]);
   const [me, setMe] = useStateApp(null);
@@ -147,6 +147,7 @@ function App() {
       onAdmin={() => { if (!window.location.hash.startsWith('#admin/')) window.location.hash = 'admin/rooms'; setRoute("admin"); }}
       onLogout={logout}
       onRefresh={refresh}
+      onMeUpdate={(updated) => setMe(updated)}
       onJoinSession={joinSession}
       onLeaveSession={leaveSession} />;
   }

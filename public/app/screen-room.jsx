@@ -169,11 +169,9 @@ function RoomScreen({ token, roomId, mode = 'fresh', userId, onExit, onCompleted
         setScore((s) => s + res.points_awarded);
         setStreak((s) => s + 1);
         setFlash(true); setTimeout(() => setFlash(false), 700);
-        toast(`+${res.points_awarded} PTS`, "success");
       } else {
         setStreak(0);
         setShake(true); setTimeout(() => setShake(false), 520);
-        toast(res.timed_out ? "TIME'S UP" : "INCORRECT", "error");
       }
       if (res.module_completed) {
         setFinished({
@@ -214,10 +212,12 @@ function RoomScreen({ token, roomId, mode = 'fresh', userId, onExit, onCompleted
                 : ' Resume from there, or restart from Q1.'}
             </p>
             <div style={{ display: "flex", gap: 12 }}>
-              <button className="btn" disabled={startOverLocked} onClick={() => {
-                clearRoomProgress(roomId, userId);
-                setResumePrompt(null);
-              }} style={{ flex: 1, opacity: startOverLocked ? 0.35 : 1, cursor: startOverLocked ? 'not-allowed' : undefined }}>↺ START OVER</button>
+              {!startOverLocked && (
+                <button className="btn" onClick={() => {
+                  clearRoomProgress(roomId, userId);
+                  setResumePrompt(null);
+                }} style={{ flex: 1 }}>↺ START OVER</button>
+              )}
               <button className="btn btn-primary" onClick={() => {
                 setIdx(resumePrompt);
                 setResumePrompt(null);
@@ -235,7 +235,7 @@ function RoomScreen({ token, roomId, mode = 'fresh', userId, onExit, onCompleted
   const progressPct = ((idx + (result ? 1 : 0)) / total) * 100;
 
   // finish celebration overlay
-  if (finished && result) {
+  if (finished && result && !isTestMode) {
     return <RoomComplete module={data.module} summary={finished} streak={streak} onContinue={() => onCompleted(finished)} />;
   }
 
@@ -252,10 +252,12 @@ function RoomScreen({ token, roomId, mode = 'fresh', userId, onExit, onCompleted
           {isTestMode && <div style={{ marginTop: 3, fontSize: 9, fontWeight: 800, letterSpacing: '0.1em', color: 'var(--accent-2)' }}>🧪 TEST MODE</div>}
         </div>
         <div style={rStyles.miniHud}>
-          <div style={rStyles.miniStat}>
-            <span className="faint" style={{ fontSize: 9, letterSpacing: "0.1em" }}>SCORE</span>
-            <span className="cyan glow-text" style={{ fontWeight: 800, fontSize: 16 }}><CountUp value={score} /></span>
-          </div>
+          {!isTestMode && (
+            <div style={rStyles.miniStat}>
+              <span className="faint" style={{ fontSize: 9, letterSpacing: "0.1em" }}>SCORE</span>
+              <span className="cyan glow-text" style={{ fontWeight: 800, fontSize: 16 }}><CountUp value={score} /></span>
+            </div>
+          )}
           <div style={rStyles.miniStat}>
             <span className="faint" style={{ fontSize: 9, letterSpacing: "0.1em" }}>STREAK</span>
             <span className={streak > 0 ? "mag glow-text" : "faint"} style={{ fontWeight: 800, fontSize: 16, display: "flex", alignItems: "center", gap: 4 }}>
@@ -346,10 +348,10 @@ function RoomScreen({ token, roomId, mode = 'fresh', userId, onExit, onCompleted
                 background: result.correct ? "var(--lime)" : "var(--red)", color: "#06110a"
               }}>{result.correct ? <Icon name="check" size={18} stroke="#06110a" /> : "✕"}</span>
               <span className={result.correct ? "lime glow-text" : "red glow-text"} style={{ fontWeight: 800, letterSpacing: "0.1em", fontSize: 16 }}>
-                {result.correct ? `CORRECT  ·  +${result.points_awarded} PTS` : result.timed_out ? "TIME EXPIRED" : "INCORRECT"}
+                {result.correct ? (isTestMode ? 'CORRECT' : `CORRECT  ·  +${result.points_awarded} PTS`) : result.timed_out ? "TIME EXPIRED" : "INCORRECT"}
               </span>
             </div>
-            {!result.correct && (
+            {isTestMode && (
               <div style={{ marginTop: 12 }}>
                 <span className="faint" style={{ fontSize: 11, letterSpacing: "0.1em" }}>CORRECT ANSWER</span>
                 <div style={rStyles.correctAns}><code style={{ whiteSpace: "pre-wrap" }}>{result.correct_answer}</code></div>

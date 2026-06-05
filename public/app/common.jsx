@@ -268,4 +268,24 @@ function ImagePicker({ value, onChange, label = "ADD IMAGE", compact }) {
   );
 }
 
-Object.assign(window, { Atmos, Icon, TYPE_MARK, RoomIcon, ICON_OPTIONS, ToastProvider, useToast, LoadingScreen, CountUp, downscaleImageFile, ImagePicker });
+// ---- Avatar (DiceBear pixel-art) -------------------------------------------
+const AVATAR_COLORS = ['#00E5FF', '#FF3DCB', '#5CFF8F', '#FFB000', '#7A5CFF', '#FF4D6D'];
+
+function avatarUrl(name, gender, color) {
+  const seed = encodeURIComponent((name || 'user') + (gender === 'f' ? '_f' : '_m'));
+  const clothing = (color || '#00E5FF').replace('#', '');
+  return `https://api.dicebear.com/9.x/pixel-art/svg?seed=${seed}&clothingColor=${clothing}&backgroundColor=0d1117&backgroundType=solid&scale=80`;
+}
+
+function Avatar({ name, gender, color, size = 32, style: extraStyle }) {
+  return (
+    <img
+      src={avatarUrl(name, gender, color)}
+      alt=""
+      width={size} height={size}
+      style={{ borderRadius: 6, display: 'block', imageRendering: 'pixelated', flexShrink: 0, ...extraStyle }}
+    />
+  );
+}
+
+Object.assign(window, { Atmos, Icon, TYPE_MARK, RoomIcon, ICON_OPTIONS, ToastProvider, useToast, LoadingScreen, CountUp, downscaleImageFile, ImagePicker, avatarUrl, Avatar, AVATAR_COLORS });

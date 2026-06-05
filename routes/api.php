@@ -22,6 +22,7 @@ Route::get('/batches', fn () => response()->json([
 // ---- authenticated (Bearer token via Sanctum) ---------------------------
 Route::middleware('auth:sanctum')->group(function () {
     Route::get('/me', [AuthController::class, 'me']);
+    Route::patch('/me', [AuthController::class, 'updateProfile']);
     Route::post('/logout', [AuthController::class, 'logout']);
 
     Route::get('/rooms', [RoomController::class, 'index']);

@@ -1,5 +1,6 @@
 // screen-admin.jsx — Instructor / Admin console: manage rooms & questions
 const { useState: useStateAd, useEffect: useEffectAd, useRef: useRefAd } = React;
+const Avatar = window.Avatar || (() => null);
 
 const Q_TYPES = [
   { id: "mcq", label: "MCQ", desc: "Single answer" },
@@ -490,10 +491,9 @@ function RoomEditor({ token, module, onSaved, onDeleted }) {
 //  BATCHES PANEL
 // ============================================================
 function StudentRow({ student, onDelete }) {
-  const initials = (student.handle || '?').slice(0, 2).toUpperCase();
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 12px', borderRadius: 8, background: 'rgba(0,0,0,0.2)', border: '1px solid var(--hairline)' }}>
-      <div style={{ width: 28, height: 28, borderRadius: '50%', background: 'color-mix(in srgb, var(--accent) 18%, transparent)', border: '1px solid color-mix(in srgb, var(--accent) 35%, transparent)', display: 'grid', placeItems: 'center', fontSize: 11, fontWeight: 800, color: 'var(--accent)', flexShrink: 0 }}>{initials}</div>
+      <Avatar name={student.handle} gender={student.gender} color={student.avatar_color} size={28} style={{ borderRadius: 6, border: '1px solid var(--hairline)' }} />
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.handle}</div>
         <div className="faint" style={{ fontSize: 10, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{student.email}</div>

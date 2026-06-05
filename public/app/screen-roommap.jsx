@@ -1,5 +1,99 @@
 // screen-roommap.jsx — the main screen: rooms along a winding path
 const { useState: useStateMap, useEffect: useEffectMap } = React;
+const Avatar = window.Avatar || (() => null);
+const AVATAR_COLORS = window.AVATAR_COLORS || ['#00E5FF','#FF3DCB','#5CFF8F','#FFB000','#7A5CFF','#FF4D6D'];
+
+// ---- Profile modal ----------------------------------------------------------
+function ProfileModal({ token, me, onSaved, onCancel }) {
+  const toast = window.useToast();
+  const { useState: useS } = React;
+  const [handle, setHandle] = useS(me?.handle || me?.name || '');
+  const [gender, setGender] = useS(me?.gender || 'm');
+  const [color, setColor] = useS(me?.avatar_color || '#00E5FF');
+  const [curPw, setCurPw] = useS('');
+  const [newPw, setNewPw] = useS('');
+  const [saving, setSaving] = useS(false);
+
+  async function save() {
+    if (!handle.trim()) { toast('Handle required', 'error'); return; }
+    setSaving(true);
+    try {
+      const payload = { handle: handle.trim(), gender, avatar_color: color };
+      if (newPw) { payload.current_password = curPw; payload.new_password = newPw; }
+      const updated = await window.api.updateMe(token, payload);
+      toast('PROFILE UPDATED', 'success');
+      onSaved(updated);
+    } catch(e) {
+      toast(e.message || 'Update failed', 'error');
+    } finally { setSaving(false); }
+  }
+
+  return (
+    <div style={{ position:'fixed', inset:0, zIndex:200, background:'rgba(3,6,10,0.8)', backdropFilter:'blur(6px)', display:'grid', placeItems:'center', padding:20 }}
+      onMouseDown={onCancel}>
+      <div className="glass reveal" style={{ width:'min(400px, 96vw)', maxHeight:'calc(100vh - 40px)', overflowY:'auto' }} onMouseDown={e => e.stopPropagation()}>
+        <div style={{ padding:'18px 22px 14px', borderBottom:'1px solid var(--hairline)', display:'flex', alignItems:'center', justifyContent:'space-between' }}>
+          <div>
+            <div className="eyebrow" style={{ fontSize:9, marginBottom:3 }}>OPERATIVE</div>
+            <h2 style={{ fontSize:18, letterSpacing:'0.1em' }}>EDIT PROFILE</h2>
+          </div>
+          <Avatar name={handle || me?.handle} gender={gender} color={color} size={52}
+            style={{ borderRadius:10, border:'2px solid color-mix(in srgb, var(--accent) 40%, transparent)', boxShadow:'0 0 20px color-mix(in srgb, var(--accent) 25%, transparent)' }} />
+        </div>
+
+        <div style={{ padding:'18px 22px 22px', display:'grid', gap:16 }}>
+          {/* handle */}
+          <div>
+            <label className="field-label" style={{ display:'flex', justifyContent:'space-between' }}>
+              <span>Handle</span><span className="faint" style={{ fontSize:10 }}>{handle.length}/20</span>
+            </label>
+            <input className="field" value={handle} maxLength={20}
+              onChange={e => setHandle(e.target.value)} placeholder="your_handle" />
+          </div>
+
+          {/* gender + color */}
+          <div>
+            <label className="field-label">Avatar</label>
+            <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+              <div style={{ display:'flex', gap:6 }}>
+                {[{v:'m',label:'♂ M'},{v:'f',label:'♀ F'}].map(({v,label}) => (
+                  <button key={v} type="button" className="btn"
+                    onClick={() => setGender(v)}
+                    style={{ padding:'6px 13px', fontSize:12, ...(gender===v ? { background:'color-mix(in srgb, var(--accent) 16%, transparent)', borderColor:'var(--accent)', color:'var(--accent)' } : {}) }}>
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div style={{ display:'flex', gap:6 }}>
+                {AVATAR_COLORS.map(c => (
+                  <button key={c} type="button"
+                    onClick={() => setColor(c)}
+                    style={{ width:24, height:24, borderRadius:5, background:c, border:color===c ? '2px solid #fff' : '2px solid transparent', cursor:'pointer', padding:0 }} />
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* password */}
+          <div style={{ borderTop:'1px solid var(--hairline)', paddingTop:14, display:'grid', gap:10 }}>
+            <div className="eyebrow" style={{ fontSize:9 }}>CHANGE PASSWORD — leave blank to keep current</div>
+            <input className="field" type="password" value={curPw} onChange={e => setCurPw(e.target.value)}
+              placeholder="current password" autoComplete="current-password" />
+            <input className="field" type="password" value={newPw} onChange={e => setNewPw(e.target.value)}
+              placeholder="new password" autoComplete="new-password" />
+          </div>
+
+          <div style={{ display:'flex', gap:10, justifyContent:'flex-end' }}>
+            <button className="btn" onClick={onCancel}>CANCEL</button>
+            <button className="btn btn-primary" onClick={save} disabled={saving}>
+              {saving ? 'SAVING…' : '✓ SAVE'}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ---- Join Session modal --------------------------------------------------
 function JoinSessionModal({ token, onJoin, onCancel }) {
@@ -55,7 +149,7 @@ const jsStyles = {
 };
 
 // ---- HUD -----------------------------------------------------------------
-function Hud({ me, isAdmin, activeSession, onLeaderboard, onAdmin, onLogout, onJoinSession, onLeaveSession }) {
+function Hud({ me, isAdmin, activeSession, onLeaderboard, onAdmin, onLogout, onJoinSession, onLeaveSession, onAvatarClick }) {
   return (
     <div className="glass reveal hud-bar" style={hStyles.bar}>
       <div style={hStyles.left}>
@@ -63,6 +157,15 @@ function Hud({ me, isAdmin, activeSession, onLeaderboard, onAdmin, onLogout, onJ
           <Icon name="terminal" size={20} stroke="var(--accent)" />
           <span className="glow-text cyan hud-logo-text" style={{ fontWeight: 800, letterSpacing: "0.16em" }}>QUIZ ARENA</span>
         </div>
+        {me && (
+          <button type="button" onClick={onAvatarClick}
+            style={{ display:'flex', alignItems:'center', gap:8, marginLeft:14, paddingLeft:14, borderLeft:'1px solid var(--hairline)', background:'none', border:'none', cursor:'pointer', padding:'4px 4px 4px 14px' }}
+            title="Edit profile">
+            <Avatar name={me.handle || me.name} gender={me.gender} color={me.avatar_color} size={30}
+              style={{ borderRadius:7, border:'1px solid color-mix(in srgb, var(--accent) 35%, transparent)', transition:'box-shadow .2s' }} />
+            <span className="faint" style={{ fontSize:11, letterSpacing:'0.06em', maxWidth:90, overflow:'hidden', textOverflow:'ellipsis', whiteSpace:'nowrap' }}>{me.handle || me.name}</span>
+          </button>
+        )}
       </div>
       <div className="hud-stats" style={hStyles.stats}>
         <div style={hStyles.stat}>
@@ -185,7 +288,13 @@ function RoomNode({ room, isCurrent, side, index, userId, onEnterFresh, onEnterR
                 ↺ REPLAY
               </button>
             )}
-            {state === "exhausted" && (
+            {state === "exhausted" && hasProgress && !room.completed && (
+              <button className="btn btn-primary" style={{ fontSize: 12, padding: '6px 13px' }}
+                onClick={e => { e.stopPropagation(); onEnterResume(room); }}>
+                ▶ RESUME
+              </button>
+            )}
+            {state === "exhausted" && (!hasProgress || room.completed) && (
               <button className="btn" style={{ fontSize: 12, padding: '6px 13px', color: 'var(--accent-2)', borderColor: 'color-mix(in srgb, var(--accent-2) 40%, transparent)' }}
                 onClick={e => { e.stopPropagation(); onEnterPractice(room); }}>
                 🧪 PRACTICE
@@ -201,9 +310,10 @@ function RoomNode({ room, isCurrent, side, index, userId, onEnterFresh, onEnterR
   );
 }
 
-function RoomMap({ token, rooms, me, loading, layout, isAdmin, activeSession, sessionRestored, testMode, onSessionRestoreDismiss, onEnter, onLeaderboard, onAdmin, onLogout, onRefresh, onJoinSession, onLeaveSession }) {
+function RoomMap({ token, rooms, me, loading, layout, isAdmin, activeSession, sessionRestored, testMode, onSessionRestoreDismiss, onEnter, onLeaderboard, onAdmin, onLogout, onRefresh, onJoinSession, onLeaveSession, onMeUpdate }) {
   const toast = window.useToast();
   const [joining, setJoining] = useStateMap(false);
+  const [editingProfile, setEditingProfile] = useStateMap(false);
 
   // In session mode: filter to session rooms + unlock all
   const sessionRooms = activeSession
@@ -226,6 +336,7 @@ function RoomMap({ token, rooms, me, loading, layout, isAdmin, activeSession, se
     onEnter(room, 'resume');
   }
   function handleEnterPractice(room) {
+    window.api.startAttempt(token, room.id).catch(() => {});
     onEnter(room, 'practice');
   }
 
@@ -246,7 +357,8 @@ function RoomMap({ token, rooms, me, loading, layout, isAdmin, activeSession, se
     <div style={mStyles.page}>
       <Hud me={me} isAdmin={isAdmin} activeSession={activeSession}
         onLeaderboard={onLeaderboard} onAdmin={onAdmin} onLogout={onLogout}
-        onJoinSession={() => setJoining(true)} onLeaveSession={handleLeave} />
+        onJoinSession={() => setJoining(true)} onLeaveSession={handleLeave}
+        onAvatarClick={() => setEditingProfile(true)} />
 
       {/* test mode banner */}
       {testMode && !activeSession && (
@@ -334,6 +446,11 @@ function RoomMap({ token, rooms, me, loading, layout, isAdmin, activeSession, se
       )}
 
       {joining && <JoinSessionModal token={token} onJoin={handleJoin} onCancel={() => setJoining(false)} />}
+      {editingProfile && (
+        <ProfileModal token={token} me={me}
+          onSaved={(updated) => { setEditingProfile(false); if (onMeUpdate) onMeUpdate(updated); else onRefresh(); }}
+          onCancel={() => setEditingProfile(false)} />
+      )}
     </div>
   );
 }

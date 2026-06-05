@@ -1,5 +1,6 @@
 // screen-leaderboard.jsx — ranked glass list, top 3 emphasized
 const { useState: useStateLb, useEffect: useEffectLb, useRef: useRefLb, useCallback: useCBLb } = React;
+const Avatar = window.Avatar || (() => null);
 
 function Leaderboard({ token, me, sessionCode, onExit }) {
   const hasBatch = !sessionCode && !!me?.batch;
@@ -125,7 +126,8 @@ function Leaderboard({ token, me, sessionCode, onExit }) {
               const h = pos === 0 ? 150 : pos === 1 ? 116 : 96;
               return (
                 <div key={pos} style={{ ...lbStyles.podCol, animationDelay: (0.1 + vi * 0.1) + "s" }} className="reveal">
-                  <div style={{ ...lbStyles.podMedal, borderColor: medal[pos], color: medal[pos], boxShadow: `0 0 calc(26px * var(--glow-mult)) color-mix(in srgb, ${medal[pos]} 45%, transparent)` }}>
+                  <Avatar name={r.name} gender={r.gender} color={r.avatar_color} size={44} style={{ borderRadius: 10, border: `2px solid color-mix(in srgb, ${medal[pos]} 60%, transparent)`, boxShadow: `0 0 calc(18px * var(--glow-mult)) color-mix(in srgb, ${medal[pos]} 35%, transparent)` }} />
+                  <div style={{ ...lbStyles.podMedal, borderColor: medal[pos], color: medal[pos], boxShadow: `0 0 calc(26px * var(--glow-mult)) color-mix(in srgb, ${medal[pos]} 45%, transparent)`, width: 28, height: 28, fontSize: 14, marginBottom: 0 }}>
                     {pos + 1}
                   </div>
                   <div style={{ ...lbStyles.podName, color: r.you ? "var(--accent)" : "var(--text)", maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
@@ -159,6 +161,7 @@ function Leaderboard({ token, me, sessionCode, onExit }) {
               <div key={i} className={"glass reveal lb-row" + (r.you ? " lb-row--you" : "")}
                 style={{ ...lbStyles.row, animationDelay: (0.2 + i * 0.04) + "s" }}>
                 <span style={lbStyles.rank}>{String(i + 4).padStart(2, "0")}</span>
+                <Avatar name={r.name} gender={r.gender} color={r.avatar_color} size={28} style={{ borderRadius: 6 }} />
                 <span style={{ flex: 1, minWidth: 0, fontWeight: 700, letterSpacing: "0.04em", color: r.you ? "var(--accent)" : "var(--text)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {r.name}
                   {r.batch && view === 'all' && <span className="faint" style={{ fontSize: 10, marginLeft: 8, fontWeight: 400 }}>[{r.batch}]</span>}

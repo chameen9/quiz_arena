@@ -27,6 +27,8 @@ class LeaderboardController extends Controller
             $rows = $users->map(fn ($u) => [
                 'name'          => $u->handle ?: $u->name,
                 'batch'         => $u->batch,
+                'gender'        => $u->gender ?? 'm',
+                'avatar_color'  => $u->avatar_color ?? '#00E5FF',
                 'rooms_cleared' => $u->progress->where('completed', true)->count(),
                 'total_points'  => (int) $u->progress->sum('score'),
                 'you'           => $u->id === $me->id,
@@ -64,6 +66,8 @@ class LeaderboardController extends Controller
             $rows[] = [
                 'name'          => $u->handle ?: $u->name,
                 'batch'         => $u->batch,
+                'gender'        => $u->gender ?? 'm',
+                'avatar_color'  => $u->avatar_color ?? '#00E5FF',
                 'rooms_cleared' => $u->progress->where('completed', true)->count(),
                 'total_points'  => (int) $u->progress->sum('score'),
                 'you'           => $me && $u->id === $me->id,

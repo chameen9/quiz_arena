@@ -27,6 +27,8 @@ class RankingsController extends Controller
                 'id'            => $u->id,
                 'name'          => $u->handle ?: $u->name,
                 'batch'         => $u->batch,
+                'gender'        => $u->gender ?? 'm',
+                'avatar_color'  => $u->avatar_color ?? '#00E5FF',
                 'total_points'  => (int) $u->progress->sum('score'),
                 'rooms_cleared' => $u->progress->where('completed', true)->count(),
             ];

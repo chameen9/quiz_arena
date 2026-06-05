@@ -106,6 +106,8 @@ class BatchController extends Controller
             'handle'        => $u->handle ?: $u->name,
             'email'         => $u->email,
             'batch'         => $u->batch,
+            'gender'        => $u->gender ?? 'm',
+            'avatar_color'  => $u->avatar_color ?? '#00E5FF',
             'joined'        => $u->created_at?->format('Y-m-d'),
             'total_points'  => (int) $u->progress->sum('score'),
             'rooms_cleared' => $u->progress->where('completed', true)->count(),

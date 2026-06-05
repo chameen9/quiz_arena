@@ -1,5 +1,7 @@
 // screen-auth.jsx — login / register
 const { useState: useStateAuth, useEffect: useEffectAuth, useRef: useRefAuth } = React;
+const Avatar = window.Avatar || (() => null);
+const AVATAR_COLORS = window.AVATAR_COLORS || ['#00E5FF', '#FF3DCB', '#5CFF8F', '#FFB000', '#7A5CFF', '#FF4D6D'];
 
 function BatchSelect({ value, options, onChange }) {
   const [open, setOpen] = useStateAuth(false);
@@ -41,7 +43,7 @@ function BatchSelect({ value, options, onChange }) {
 function AuthScreen({ onAuthed }) {
   const toast = window.useToast();
   const [mode, setMode] = useStateAuth("login"); // 'login' | 'register'
-  const [form, setForm] = useStateAuth({ name: "", email: "", password: "", batch: "" });
+  const [form, setForm] = useStateAuth({ name: "", email: "", password: "", batch: "", gender: "m", avatar_color: "#00E5FF" });
   const [busy, setBusy] = useStateAuth(false);
   const [err, setErr] = useStateAuth(null);
   const [batchOptions, setBatchOptions] = useStateAuth([]);
@@ -118,6 +120,28 @@ function AuthScreen({ onAuthed }) {
                 </label>
                 <input className="field" value={form.name} onChange={set("name")}
                   placeholder="e.g. byte_runner" autoComplete="off" maxLength={20} />
+              </div>
+            )}
+            {mode === "register" && (
+              <div className="reveal">
+                <label className="field-label">Avatar</label>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {[{ v: 'm', label: '♂ M' }, { v: 'f', label: '♀ F' }].map(({ v, label }) => (
+                      <button key={v} type="button" onClick={() => setForm(f => ({ ...f, gender: v }))}
+                        className="btn" style={{ padding: '6px 13px', fontSize: 12, ...(form.gender === v ? { background: 'color-mix(in srgb, var(--accent) 16%, transparent)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}) }}>
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ display: 'flex', gap: 6 }}>
+                    {AVATAR_COLORS.map(c => (
+                      <button key={c} type="button" onClick={() => setForm(f => ({ ...f, avatar_color: c }))}
+                        style={{ width: 24, height: 24, borderRadius: 5, background: c, border: form.avatar_color === c ? '2px solid #fff' : '2px solid transparent', cursor: 'pointer', padding: 0, flexShrink: 0 }} />
+                    ))}
+                  </div>
+                  {form.name.trim() && <Avatar name={form.name} gender={form.gender} color={form.avatar_color} size={38} style={{ borderRadius: 8, border: '1px solid var(--glass-border)' }} />}
+                </div>
               </div>
             )}
             {mode === "register" && (

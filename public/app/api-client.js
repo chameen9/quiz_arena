@@ -53,6 +53,7 @@
     startAttempt: (token, moduleId) => request("/rooms/" + moduleId + "/start-attempt", { method: "POST", token }),
     leaderboard: (token, view) => request("/leaderboard" + (view ? "?view=" + view : ""), { token }),
     me: (token) => request("/me", { token }),
+    updateMe: (token, data) => request("/me", { method: "PATCH", token, body: data }),
 
     // no-op kept for component compatibility (server is stateless per submit)
     _resetRoomBuffer: () => {},

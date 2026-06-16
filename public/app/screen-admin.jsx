@@ -19,11 +19,11 @@ function newQuestion() {
   };
 }
 
-// ---- CSV bulk-import helpers --------------------------------
-function parseCsvLine(line) {
+// ---- CSV/TSV bulk-import helpers --------------------------------
+function parseLine(line, delim) {
+  if (delim === '\t') return line.split('\t').map(s => s.trim());
   const result = [];
-  let cur = '';
-  let inQ = false;
+  let cur = '', inQ = false;
   for (let i = 0; i < line.length; i++) {
     const c = line[i];
     if (c === '"') {
@@ -37,14 +37,16 @@ function parseCsvLine(line) {
 }
 
 function csvToQuestions(raw) {
-  const lines = raw.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  const lines = raw.split(/\r?\n/).map(l => l.trim()).filter(l => l && !l.startsWith('#'));
   const questions = [], errors = [];
   const LETTERS = { a: 0, b: 1, c: 2, d: 3 };
+  // auto-detect delimiter: if first non-empty line has more tabs than commas → TSV
+  const delim = lines.length && (lines[0].match(/\t/g) || []).length > 1 ? '\t' : ',';
   const start = lines.length && /^type/i.test(lines[0]) ? 1 : 0;
 
   lines.slice(start).forEach((line, li) => {
     const row = li + start + 1;
-    const c = parseCsvLine(line);
+    const c = parseLine(line, delim);
     const type = (c[0] || 'mcq').toLowerCase();
     if (!['mcq', 'msq', 'text', 'regex'].includes(type)) {
       errors.push(`Row ${row}: unknown type "${c[0] || ''}"`); return;
@@ -253,62 +255,162 @@ function QuestionEditor({ initial, index, onSave, onCancel }) {
 //  BULK IMPORT MODAL
 // ============================================================
 function BulkImportModal({ onImport, onCancel }) {
+  const [mode, setMode] = useStateAd('file');
   const [csv, setCsv] = useStateAd('');
   const [parsed, setParsed] = useStateAd(null);
+  const [dragOver, setDragOver] = useStateAd(false);
+  const [fileName, setFileName] = useStateAd('');
+  const fileRef = useRefAd(null);
 
-  const SAMPLE = [
-    'type,prompt,opt_a,opt_b,opt_c,opt_d,correct,hint,points,timer',
-    'mcq,What is Python?,Programming language,A snake,A game,A database,A,Python is a high-level language,100,30',
-    'msq,"Which are valid Python data types?",int,str,loop,bool,"A,B,D",Multiple correct answers here,100,60',
-    'text,What file extension does Python use?,,,,,.py,Python source files end in .py,100,30',
-    'mcq,Python is case-sensitive?,True,False,,,A,Python distinguishes upper/lower case,100,20',
-  ].join('\n');
+  const SAMPLE_ROWS = [
+    ['type','prompt','opt_a','opt_b','opt_c','opt_d','correct','hint','points','timer'],
+    ['mcq','What is Python?','Programming language','A snake','A game','A database','A','Python is a high-level language','100','30'],
+    ['msq','Which are valid Python data types?','int','str','loop','bool','A,B,D','Multiple correct answers','100','60'],
+    ['text','What file extension does Python use?','','','','','.py','Source files end in .py','100','30'],
+    ['mcq','Python is case-sensitive?','True','False','','','A','Distinguishes upper/lower case','100','20'],
+  ];
+  const SAMPLE_CSV = SAMPLE_ROWS.map(r => r.map(c => c.includes(',') ? `"${c}"` : c).join(',')).join('\n');
 
-  function tryParse() { setParsed(csvToQuestions(csv)); }
+  function handleFile(file) {
+    if (!file) return;
+    setFileName(file.name);
+    setParsed(null);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        if (typeof XLSX === 'undefined') {
+          setParsed({ questions: [], errors: ['Excel library not loaded — try refreshing the page.'] });
+          return;
+        }
+        const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        const csvData = XLSX.utils.sheet_to_csv(sheet);
+        setParsed(csvToQuestions(csvData));
+      } catch (err) {
+        setParsed({ questions: [], errors: ['Failed to read file: ' + (err.message || String(err))] });
+      }
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function onDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  }
+
+  function downloadTemplate() {
+    if (typeof XLSX !== 'undefined') {
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(SAMPLE_ROWS);
+      // column widths
+      ws['!cols'] = [8,40,20,20,20,20,12,30,8,8].map(w => ({ wch: w }));
+      XLSX.utils.book_append_sheet(wb, ws, 'Questions');
+      XLSX.writeFile(wb, 'questions_template.xlsx');
+    } else {
+      const blob = new Blob([SAMPLE_CSV], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'questions_template.csv'; a.click();
+      URL.revokeObjectURL(url);
+    }
+  }
 
   const ok = parsed && parsed.questions.length > 0;
+  const formatHint = (
+    <div style={{ padding: "11px 14px", background: "rgba(0,0,0,0.35)", borderRadius: 9, border: "1px solid var(--hairline)", fontSize: 11, lineHeight: 1.8 }}>
+      <code className="cyan" style={{ display: "block", marginBottom: 6, letterSpacing: "0.04em" }}>
+        type · prompt · opt_a · opt_b · opt_c · opt_d · correct · hint · points · timer
+      </code>
+      <span className="faint">
+        <b>type</b>: mcq / msq / text / regex &nbsp;·&nbsp;
+        <b>correct</b>: A/B/C/D for mcq · A,C for msq · answer text for text<br />
+        opt_c, opt_d, hint optional &nbsp;·&nbsp; points default 100 &nbsp;·&nbsp; timer default 30s
+      </span>
+    </div>
+  );
 
   return (
     <div style={adStyles.modalWrap} onMouseDown={onCancel}>
-      <div className="glass" style={{ ...adStyles.modal, width: "min(740px, 96vw)" }} onMouseDown={e => e.stopPropagation()}>
+      <div className="glass" style={{ ...adStyles.modal, width: "min(760px, 96vw)" }} onMouseDown={e => e.stopPropagation()}>
         <div style={adStyles.modalHead}>
           <div>
             <div className="eyebrow">BULK IMPORT</div>
-            <h2 style={{ fontSize: 18, marginTop: 4 }}>CSV QUESTION IMPORT</h2>
+            <h2 style={{ fontSize: 18, marginTop: 4 }}>IMPORT QUESTIONS</h2>
           </div>
           <button className="btn" onClick={onCancel} style={{ padding: "9px 13px" }}>✕</button>
         </div>
 
         <div style={adStyles.modalBody}>
-          <div style={{ marginBottom: 16, padding: "11px 14px", background: "rgba(0,0,0,0.35)", borderRadius: 9, border: "1px solid var(--hairline)", fontSize: 11, lineHeight: 1.8 }}>
-            <code className="cyan" style={{ display: "block", marginBottom: 6, letterSpacing: "0.04em" }}>
-              type, prompt, opt_a, opt_b, opt_c, opt_d, correct, hint, points, timer
-            </code>
-            <span className="faint">
-              <b>type</b>: mcq / msq / text / regex &nbsp;·&nbsp;
-              <b>correct</b>: A/B/C/D for mcq · "A,C" for msq · answer text for text<br />
-              opt_c, opt_d, hint are optional &nbsp;·&nbsp; points default 100 &nbsp;·&nbsp; timer default 30s
-            </span>
+          {/* tab switcher */}
+          <div style={{ display: 'flex', gap: 6, marginBottom: 16 }}>
+            {[['file', '📊 EXCEL / CSV FILE'], ['csv', '📋 PASTE TEXT']].map(([m, label]) => (
+              <button key={m} className="btn" onClick={() => { setMode(m); setParsed(null); }}
+                style={{
+                  fontSize: 11, padding: "7px 14px",
+                  opacity: mode === m ? 1 : 0.5,
+                  background: mode === m ? 'rgba(255,255,255,0.1)' : 'transparent',
+                  border: mode === m ? '1px solid var(--hairline)' : '1px solid transparent',
+                }}>
+                {label}
+              </button>
+            ))}
           </div>
 
-          <label className="field-label">PASTE CSV DATA</label>
-          <textarea className="field" rows={13} value={csv}
-            onChange={e => { setCsv(e.target.value); setParsed(null); }}
-            placeholder={"type,prompt,opt_a,opt_b,opt_c,opt_d,correct,hint,points,timer\nmcq,What is Python?,Language,Snake,Game,Database,A,High-level language,100,30"}
-            style={{ fontSize: 12, lineHeight: 1.65, resize: "vertical" }} />
-
-          <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
-            <button className="btn" onClick={() => { setCsv(SAMPLE); setParsed(null); }}
-              style={{ fontSize: 11, padding: "8px 14px" }}>↓ LOAD SAMPLE</button>
-            <button className="btn" onClick={tryParse}
-              style={{ fontSize: 11, padding: "8px 14px" }}>◎ PREVIEW / VALIDATE</button>
-          </div>
+          {mode === 'file' ? (
+            <>
+              <div
+                onDragOver={e => { e.preventDefault(); setDragOver(true); }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={onDrop}
+                onClick={() => fileRef.current && fileRef.current.click()}
+                style={{
+                  border: `2px dashed ${dragOver ? 'var(--cyan)' : 'var(--hairline)'}`,
+                  borderRadius: 10, padding: '32px 24px', textAlign: 'center', cursor: 'pointer',
+                  background: dragOver ? 'rgba(0,200,255,0.06)' : 'rgba(0,0,0,0.2)',
+                  transition: 'border-color 0.15s, background 0.15s', marginBottom: 10,
+                }}>
+                <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv"
+                  style={{ display: 'none' }}
+                  onChange={e => e.target.files[0] && handleFile(e.target.files[0])} />
+                <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
+                <div style={{ fontWeight: 700, fontSize: 14, marginBottom: 5 }}>
+                  {fileName ? fileName : 'DROP EXCEL FILE HERE'}
+                </div>
+                <div className="faint" style={{ fontSize: 11 }}>
+                  {fileName ? 'Click to change file' : 'or click to browse · .xlsx  .xls  .csv'}
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 10, marginBottom: 14, flexWrap: 'wrap' }}>
+                <button className="btn" onClick={downloadTemplate} style={{ fontSize: 11, padding: "8px 14px" }}>
+                  ⬇ DOWNLOAD TEMPLATE
+                </button>
+              </div>
+              {formatHint}
+            </>
+          ) : (
+            <>
+              {formatHint}
+              <label className="field-label" style={{ marginTop: 14 }}>PASTE CSV OR TSV DATA</label>
+              <textarea className="field" rows={13} value={csv}
+                onChange={e => { setCsv(e.target.value); setParsed(null); }}
+                placeholder={"type,prompt,opt_a,opt_b,opt_c,opt_d,correct,hint,points,timer\nmcq,What is Python?,Language,Snake,Game,Database,A,High-level language,100,30"}
+                style={{ fontSize: 12, lineHeight: 1.65, resize: "vertical" }} />
+              <div style={{ display: "flex", gap: 10, marginTop: 10, flexWrap: "wrap" }}>
+                <button className="btn" onClick={() => { setCsv(SAMPLE_CSV); setParsed(null); }}
+                  style={{ fontSize: 11, padding: "8px 14px" }}>↓ LOAD SAMPLE</button>
+                <button className="btn" onClick={() => setParsed(csvToQuestions(csv))}
+                  style={{ fontSize: 11, padding: "8px 14px" }}>◎ PREVIEW / VALIDATE</button>
+              </div>
+            </>
+          )}
 
           {parsed && (
             <div className="reveal" style={{
               marginTop: 14, padding: "13px 16px", borderRadius: 9,
               border: `1px solid ${ok ? "color-mix(in srgb, var(--lime) 45%, transparent)" : "color-mix(in srgb, var(--red) 45%, transparent)"}`,
-              background: ok ? "color-mix(in srgb, var(--lime) 6%, transparent)" : "color-mix(in srgb, var(--red) 6%, transparent)"
+              background: ok ? "color-mix(in srgb, var(--lime) 6%, transparent)" : "color-mix(in srgb, var(--red) 6%, transparent)",
             }}>
               <div style={{ fontWeight: 700, fontSize: 14, marginBottom: parsed.errors.length ? 8 : 0 }}>
                 {ok
@@ -439,7 +541,7 @@ function RoomEditor({ token, module, onSaved, onDeleted }) {
           <span className="faint" style={{ fontSize: 11 }}>{draft.challenges.length} in this room · students answer in order</span>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
-          <button className="btn" onClick={() => setImporting(true)} style={{ padding: "9px 14px", fontSize: 11 }}>⬆ IMPORT CSV</button>
+          <button className="btn" onClick={() => setImporting(true)} style={{ padding: "9px 14px", fontSize: 11 }}>📊 IMPORT EXCEL / CSV</button>
           <button className="btn btn-primary" onClick={() => setEditing({ q: newQuestion(), index: null })}>+ ADD QUESTION</button>
         </div>
       </div>
